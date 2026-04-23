@@ -64,7 +64,19 @@ app.get("/employees", async (req, res) => {
       timeout: 30000
     });
 
-    res.json(response.data);
+    const items = response.data.items || [];
+
+    const seen = new Set();
+    const uniqueEmployees = [];
+
+    for (const emp of items) {
+      if (!seen.has(emp.employee_id)) {
+        seen.add(emp.employee_id);
+        uniqueEmployees.push(emp);
+      }
+    }
+
+    res.json({ items: uniqueEmployees });
   } catch (error) {
     if (error.response) {
       res.status(error.response.status).json({

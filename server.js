@@ -53,12 +53,14 @@ async function getAccessToken() {
 
 app.get("/employees", async (req, res) => {
   try {
+    const userQuery = (req.query.query || "").toLowerCase();
+
     const token = await getAccessToken();
 
     const response = await axios.get(API_URL, {
       headers: {
-        "Authorization": `Bearer ${token}`,
-        "Accept": "application/json",
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
         "User-Agent": "PostmanRuntime/7.43.0"
       },
       timeout: 30000
@@ -66,17 +68,145 @@ app.get("/employees", async (req, res) => {
 
     const items = response.data.items || [];
 
+    // Remove duplicates by employee_id
     const seen = new Set();
-    const uniqueEmployees = [];
+    let employees = [];
 
     for (const emp of items) {
       if (!seen.has(emp.employee_id)) {
         seen.add(emp.employee_id);
-        uniqueEmployees.push(emp);
+        employees.push(emp);
       }
     }
 
-    res.json({ items: uniqueEmployees });
+    // Department filters
+    const departments = ["executive", "administration", "finance", "accounting", "sales"];
+    const matchedDepartment = departments.find(dep => userQuery.includes(dep));
+
+    if (matchedDepartment) {
+      employees = employees.filter(emp =>
+        emp.department_name &&
+        emp.department_name.toLowerCase() === matchedDepartment
+      );
+    }
+
+    // Job title filters
+    if (userQuery.includes("manager")) {
+      employees = employees.filter(emp =>
+        emp.job_title && emp.job_title.toLowerCase().includes("manager")
+      );
+    }
+
+    if (userQuery.includes("accountant")) {
+      employees = employees.filter(emp =>
+        emp.job_title && emp.job_title.toLowerCase().includes("accountant")
+      );
+    }
+
+    if (userQuery.includes("president")) {
+      employees = employees.filter(emp =>
+        emp.job_title && emp.job_title.toLowerCase().includes("president")
+      );
+    }
+
+    if (userQuery.includes("sales representative")) {
+      employees = employees.filter(emp =>
+        emp.job_title && emp.job_title.toLowerCase().includes("sales representative")
+      );
+    }
+
+    // Location filters
+    if (userQuery.includes("seattle")) {
+      employees = employees.filter(emp =>
+        emp.city && emp.city.toLowerCase() === "seattle"
+      );
+    }
+
+    if (userQuery.includes("oxford")) {
+      employees = employees.filter(emp =>
+        emp.city && emp.city.toLowerCase() === "oxford"
+      );
+    }
+
+    if (userQuery.includes("united states") || userQuery.includes("usa") || userQuery.includes("us")) {
+      employees = employees.filter(emp =>
+        emp.country_name && emp.country_name.toLowerCase().includes("united states")
+      );
+    }
+
+    if (userQuery.includes("united kingdom") || userQuery.includes("uk")) {
+      employees = employees.filter(emp =>
+        emp.country_name && emp.country_name.toLowerCase().includes("united kingdom")
+      );
+    }
+
+    // Salary filters
+    const lessThanMatch = userQuery.match(/(?:less than|under|below)\s*(\d+)/);
+    if (lessThanMatch) {
+      const maxSalary = Number(lessThanMatch[1]);
+      employees = employees.filter(emp => Number(emp.salary) < maxSalary);
+    }
+
+    const moreThanMatch = userQuery.match(/(?:more than|greater than|above|over)\s*(\d+)/);
+    if (moreThanMatch) {
+      const minSalary = Number(moreThanMatch[1]);
+      employees = employees.filter(emp => Number(emp.salary) > minSalary);
+    }
+
+    // Hire date filters
+    const hiredAfterMatch = userQuery.match(/hired after\s*(\d{4})/);
+    if (hiredAfterMatch) {
+      const year = Number(hiredAfterMatch[1]);
+      employees = employees.filter(emp =>
+        emp.hire_date && new Date(emp.hire_date).getFullYear() > year
+      );
+    }
+
+    const hiredBeforeMatch = userQuery.match(/hired before\s*(\d{4})/);
+    if (hiredBeforeMatch) {
+      const year = Number(hiredBeforeMatch[1]);
+      employees = employees.filter(emp =>
+        emp.hire_date && new Date(emp.hire_date).getFullYear() < year
+      );
+    }
+
+    // Leave filters
+    if (userQuery.includes("approved leave")) {
+      employees = employees.filter(emp =>
+        emp.leave_status && emp.leave_status.toLowerCase() === "approved"
+      );
+    }
+
+    if (userQuery.includes("pending leave")) {
+      employees = employees.filter(emp =>
+        emp.leave_status && emp.leave_status.toLowerCase() === "pending"
+      );
+    }
+
+    if (userQuery.includes("vacation")) {
+      employees = employees.filter(emp =>
+        emp.leave_type && emp.leave_type.toLowerCase().includes("vacation")
+      );
+    }
+
+    if (userQuery.includes("sick leave")) {
+      employees = employees.filter(emp =>
+        emp.leave_type && emp.leave_type.toLowerCase().includes("sick")
+      );
+    }
+
+    // Name search
+    const nameMatch = employees.filter(emp => {
+      const fullName = `${emp.first_name} ${emp.last_name}`.toLowerCase();
+      return userQuery.includes(fullName);
+    });
+
+    if (nameMatch.length > 0) {
+      employees = nameMatch;
+    }
+
+    res.json({ items: employees });
+
   } catch (error) {
     if (error.response) {
       res.status(error.response.status).json({

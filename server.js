@@ -78,6 +78,11 @@ app.get("/employees", async (req, res) => {
         employees.push(emp);
       }
     }
+    const { id } = req.query;
+
+if (id) {
+  employees = employees.filter(emp => String(emp.employee_id) === String(id));
+}
 
     // Department filters
     const departments = ["executive", "administration", "finance", "accounting", "sales"];

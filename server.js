@@ -82,7 +82,7 @@ app.get("/employees", async (req, res) => {
     }
 
     // Filter by employee ID from query, e.g. "show employee id 109"
-    const idMatch = userQuery.match(/(?:employee\s*id|id)\s*(\d+)/);
+    const idMatch = userQuery.match(/(?:employee\s*id|id)?\s*(\d+)/);
 
     if (idMatch) {
       const employeeId = idMatch[1];
